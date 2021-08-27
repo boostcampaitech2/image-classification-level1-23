@@ -1,6 +1,9 @@
 # pstage_01_image_classification
 
-## Getting Started    
+## Getting Started
+
+Template for the competition.
+
 ### Dependencies
 - torch==1.6.0
 - torchvision==0.7.0                                                              
