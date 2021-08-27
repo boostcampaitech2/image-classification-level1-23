@@ -1,0 +1,36 @@
+- [x] Make Inference Function
+- [x] Ensemble and submit
+- [x] Fix Resnet Code
+- [x] Apply Resnet Code
+- [x] reallocate local dataset loader according to right path format(input/data not input/)
+- [x] reallocate local dataset including jpeg, png format
+- [x] Change the code, clean dataset on upstage server
+- [x] check class order vs output prediction order -> fixed with class_to_idx
+- [x] Make dev environment on colab
+- [x] should i set shuffle=True for test data loader? -> No.
+- [x] Start making from dataloader
+  - [ ] visualize the predicted result of the csv - label and picture
+  - [ ] Visualize using Confusion Matrix to check accuracy [example](https://github.com/snoop2head/ml_classification_tutorial/blob/main/ML_Classification.ipynb)
+  - [x] Getting F1 score
+  - [ ] Apply transformation to age
+  - [ ] Apply Augmentation (imgaug)
+- [ ] Use SGD, SGDP as optimizer. SGD outperforms Adam.
+- [x] Apply ResNext50 example 1
+- [x] Apply EfficientNet
+- [ ] Apply ViT
+  - [ ] https://github.com/lukemelas/PyTorch-Pretrained-ViT
+  - [ ] https://github.com/lucidrains/vit-pytorch
+- [ ] Retinaface, dlib -> else: centercrop
+  - [ ] Mask detection model (mobilenet) -> face extraction
+- [ ] Get mask & face dataset, overlay on face
+  - [ ] opencv mask / overlay mask on the face
+- [ ] Get mask & face dataset, move mask downwards, make it as incorrect dataset
+- [ ] face detection and crop -> VERY IMPORTANT. Mask position on face determines incorrect vs correct
+- [ ] add 59 years old, 58 years old to 60 years old and above class
+- [ ] early stopping on age (epoch 10 is too much already)
+- [ ] label 0 and 1 as classes, not integers. too time consuming to figure out which is which
+- [ ] 연주님: 하나의 모델에서 레이어를 각각각 써서 하나의 결과값으로 나오게 하는 것. -> Multimodal
+- [x] Training set에 대해서 모든 Class에 대한 데이터 개수를 동일하게 설정하려고 했는데(Sampling) 그게 올바르지 않는 접근 방법이었다.
+- [ ] Age Distribution(Age <= 20, Age <58, else)로 분류를 하는 게 좋을 것 같다.
+- [ ] 60살 이상의 노인 이미지를 인터넷에서 가져오는 게 필요할 것 같다.
+- [x] 9:1이랑 8:1의 차이가 없었다.

@@ -4,6 +4,12 @@
 
 Template for the competition.
 
+### Team Links
+- [📷 Zoom 회의실 23](https://zoom.us/j/97196865381?pwd=ckxjdkhLV3EzSEI5L3FhNC9WaVg3dz09)
+- [📂 구글 드라이브(Drive)](https://drive.google.com/drive/u/2/folders/1oI71ZYms5crDxkE1xR9LryRzn45wTP4W)
+- [🎯 Google Group Admin Panel](https://groups.google.com/g/temp-boostcamp-ai/members)
+
+
 ### Dependencies
 - torch==1.6.0
 - torchvision==0.7.0                                                              
