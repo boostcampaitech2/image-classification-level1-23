@@ -3,12 +3,12 @@
 - [ ] Retinaface, dlib face detection -> else: centercrop: VERY IMPORTANT. Mask position on face determines incorrect vs correct
   - [ ] Mask detection model (mobilenet) -> face extraction
 - [ ] Make face mask dataset
-  - [ ] opencv mask / overlay mask on the face
-	- [ ] 60살 이상의 노인 이미지를 인터넷에서 가져오는 게 필요할 것 같다.
-  - [ ] [노인 이미지를 갖고 오고 Facial Landmark 기반으로 마스크 씌우기](https://www.youtube.com/watch?v=ncIyy1doSJ8)
-	- [ ] Get mask & face dataset, move mask downwards, make it as incorrect dataset
-- [ ] 아니면 Facial Landmark를 파란색 점으로 직접 이미지들에 찍을까?  그러면 AI 모델이 "신체 부위"로 학습을 할텐데.
+  - [ ] [60살 이상의 노인 이미지를 인터넷에서 가져오는 게 필요할 것 같다. Autocrawler 이용하자](https://github.com/YoongiKim/AutoCrawler)
+  - [ ] [노인 이미지를 갖고 오고 Facial Landmark 기반으로 마스크 씌우자](https://www.youtube.com/watch?v=ncIyy1doSJ8) | [Reference](/Users/noopy/Documents/_Archive/murder_hornet_dataset/modules)
+  - [ ] Get mask & face dataset, move mask downwards, make it as incorrect dataset
+- [ ] Facial Landmark를 점으로 직접 이미지들에 찍을까?  그러면 AI 모델이 점의 RGB 값을 받고 이를 "신체 부위"로 학습을 할텐데.
 	- [ ] 얼굴은 다 보이지 않는데 facial landmark를 일부분 찍을 방법이 있으려나?: (Mask가 있는데 입술만 보인다) or (Mask가 있는데 코가 보인다) -> incorrect
+	- [ ] 코의 점 색깔과, 눈의 점 색깔과, 턱의 점 색깔을 다르게 부여하는 게 좋겠다. 다만 데이터셋에서 잘 등장하지 않는 unique color들이어야 할텐데.
 - [ ] Apply Different types of transformation to age/gender/mask
 - [ ] add 59 years old, 58 years old to 60 years old and above class
 	- [ ] Age Distribution(Age <= 20, Age <58, else)로 분류를 하는 게 좋을 것 같다.
