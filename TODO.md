@@ -17,7 +17,7 @@
 
 
 ## Training
-- [ ] 연주님: 하나의 모델에서 레이어를 각각각 써서 하나의 결과값으로 나오게 하는 것. -> Multimodal
+- [ ] 연주님: 하나의 모델에서 레이어를 각각각 써서 하나의 결과값으로 나오게 하는 것.
 - [ ] Use SGD, SGDP as optimizer. SGD outperforms Adam.
 - [ ] early stopping on age (epoch 10 is too much already)
 - [ ] Try Multimodal of ViT on Age, EfficientNet on Mask and Gender
@@ -28,6 +28,8 @@ criterion_weighted = nn.CrossEntropyLoss(weight=class_weights,reduction='mean')
 loss_weighted = criterion_weighted(x, y)
 
 ```
+- [ ] 정답 클래스가 하나가 아니라 두 개일 수도 있다는 생각이 들었어요. 반팔티에다가 반바지를 입고 있다고 하면, 1) 반팔, 2) 반바지라는 2개 이상인 output을 내는 거에요. 
+Multilabel task가 정답이 두 개 이상일 태스크를 의미하는 것 같은데. 이걸 접근 방식을 18개 중에 하나가 아니라, 3가지 유형을 정해놓고, 정답을 내보자 하면은. Multilabel Task를 공부하면 도움이 될 것 같습니다.
 
 
 
