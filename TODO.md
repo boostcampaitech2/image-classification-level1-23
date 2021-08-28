@@ -21,6 +21,14 @@
 - [ ] Use SGD, SGDP as optimizer. SGD outperforms Adam.
 - [ ] early stopping on age (epoch 10 is too much already)
 - [ ] Try Multimodal of ViT on Age, EfficientNet on Mask and Gender
+- [ ] Applying weights for mask (mask 5: incorrect 1: correct 1) to CrossEntropyLoss criterion
+
+```python
+criterion_weighted = nn.CrossEntropyLoss(weight=class_weights,reduction='mean')
+loss_weighted = criterion_weighted(x, y)
+
+```
+
 
 
 ## Inference
