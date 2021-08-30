@@ -1,10 +1,10 @@
 ## Dataset & Dataloader
 
-- [ ] Retinaface, dlib face detection -> else: centercrop: VERY IMPORTANT. Mask position on face determines incorrect vs correct
-  - [ ] Mask detection model (mobilenet) -> face extraction
+- [x] Retinaface, dlib face detection -> else: centercrop: VERY IMPORTANT. Mask position on face determines incorrect vs correct
+  - [x] Mask detection model (mobilenet) -> face extraction
 - [ ] Make face mask dataset
   - [ ] [60살 이상의 노인 이미지를 인터넷에서 가져오는 게 필요할 것 같다. Autocrawler 이용하자](https://github.com/YoongiKim/AutoCrawler)
-  - [ ] [Facial Landmark Reference 1](https://www.youtube.com/watch?v=tpWVyJqehG4&list=RDCMUC9PB9nKYqKEx_N3KM-JVTpg&index=8), [Facial Landmark Reference 2](https://www.youtube.com/watch?v=3LNHxezPi1I&list=RDCMUC9PB9nKYqKEx_N3KM-JVTpg&index=3)
+  - [x] [Facial Landmark Reference 1](https://www.youtube.com/watch?v=tpWVyJqehG4&list=RDCMUC9PB9nKYqKEx_N3KM-JVTpg&index=8), [Facial Landmark Reference 2](https://www.youtube.com/watch?v=3LNHxezPi1I&list=RDCMUC9PB9nKYqKEx_N3KM-JVTpg&index=3)
   - [ ] [노인 이미지를 갖고 오고 Facial Landmark 기반으로 마스크 씌우자](https://www.youtube.com/watch?v=ncIyy1doSJ8) | [Reference](/Users/noopy/Documents/_Archive/murder_hornet_dataset/modules)
   - [ ] Get mask & face dataset, move mask downwards, make it as incorrect dataset
 - [ ] Facial Landmark를 점으로 직접 이미지들에 찍을까?  그러면 AI 모델이 점의 RGB 값을 받고 이를 "신체 부위"로 학습을 할텐데.
@@ -18,8 +18,9 @@
 
 ## Training
 - [ ] 연주님: 하나의 모델에서 레이어를 각각각 써서 하나의 결과값으로 나오게 하는 것.
-- [ ] Use SGD, SGDP as optimizer. SGD outperforms Adam.
-- [ ] early stopping on age (epoch 10 is too much already)
+- [ ] Use ArcFaceLoss
+- [x] Use SGD, SGDP as optimizer. SGD outperforms Adam. -> But AdamP outperforms SGDP
+- [ ] early stopping on age (epoch 10 is too much already) -> Epoch 10 is okay for 18 classes classification
 - [ ] Try Multimodal of ViT on Age, EfficientNet on Mask and Gender
 - [ ] Applying weights for mask (mask 5: incorrect 1: correct 1) to CrossEntropyLoss criterion. Compare with Focal Loss.
 
