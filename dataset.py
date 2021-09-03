@@ -108,3 +108,21 @@ class GenderLabels:
 
 class AgeGroup:
     map_label = lambda x: 0 if int(x) < 30 else 1 if int(x) < 60 else 2
+
+
+class TestDataset(Dataset):
+    def __init__(self, img_paths, transform, device):
+        self.img_paths = img_paths
+        self.device = device
+        self.transform = transform
+
+    def __getitem__(self, index):
+        image = Image.open(self.img_paths[index])
+        
+        if self.transform:
+            image = self.transform(image=np.array(image))['image']
+
+        return image.to(self.device)
+
+    def __len__(self):
+        return len(self.img_paths)
