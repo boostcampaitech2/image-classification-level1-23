@@ -13,6 +13,9 @@
 - [ ] Apply Different types of transformation to age/gender/mask
 - [ ] add 59 years old, 58 years old to 60 years old and above class
 	- [ ] Age Distribution(Age <= 20, Age <58, else)로 분류를 하는 게 좋을 것 같다.
+- [ ] Kfold
+- [ ] TTA
+- [ ] Cutmix
 
 
 
