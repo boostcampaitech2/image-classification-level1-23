@@ -18,6 +18,7 @@
 <br>
 
 ## 프로젝트 수행 결과
+![image](https://user-images.githubusercontent.com/43373175/132098276-fac4106e-fe6e-47ec-9242-3265d8b55ab6.png)
 
 1)  제출 결과 : 11위 (F1: 0.757, Accuracy: 79.476)
 2)  학습 데이터
