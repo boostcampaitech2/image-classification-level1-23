@@ -1,0 +1,78 @@
+{
+    "name": "Maske",
+    "n_gpu": 1,
+    "test_name": "config_LS_4",
+    "data_set": {
+        "type": "MaskBaseDataset",
+        "args": {
+            "img_dir": "../../input/data/train/images"
+        }
+    },
+    "set_transform": {
+        "type": "BaseTransForm",
+        "args": {
+            "mean": [0.560, 0.524, 0.501],
+            "std": [0.233, 0.243, 0.245],
+            "resize": [408, 307],
+            "use_rand_aug": true
+        },
+        "cut_mix": false,
+        "mix_up": false
+    },
+    "data_loader": {
+        "type": "BaseLoader",
+        "args": {
+            "batch_size": 64,
+            "shuffle": false,
+            "validation_split": 0.1,
+            "num_workers": 4
+        }
+    },
+    "module": {
+        "type": "ReadTimmModule",
+        "args": {
+            "model_arch": "tf_efficientnet_b4",
+            "num_classes": 18,
+            "pretrained": true
+        }
+    },
+    "optimizer": {
+        "type": "AdamP",
+        "args": {
+            "lr": 1e-3,
+            "betas": [0.9, 0.999],
+            "weight_decay": 1e-2
+        }
+    },
+    "lr_scheduler": {
+        "type": "ReduceLROnPlateau",
+        "args": {
+            "mode": "max",
+            "factor": 0.025,
+            "patience": 3
+        }
+    },
+    "set_loss": {
+        "type": "LabelSmoothingLoss",
+        "args": {
+            "classes": 18,
+            "smoothing": 0.1
+        }
+    },
+    "metrics": [
+        "accuracy",
+        "top_10_acc",
+        "f1_score"
+    ],
+    "trainer": {
+        "epochs": 20,
+        "save_dir": "logs/",
+        "save_period": 4,
+        "verbosity": 2,
+        "monitor": "min val_loss",
+        "early_stop": 5,
+        "tensorboard": false,
+        "beta": 0.8
+    }
+}
+

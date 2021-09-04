@@ -1,0 +1,78 @@
+{
+    "name": "Maske",
+    "n_gpu": 1,
+    "test_name": "NO_resize_Base_C400_200_TransForm",
+    "data_set": {
+        "type": "CustomDataset",
+        "args": {
+            "dir_path": "/opt/ml/input/data/train/"
+        }
+    },
+    "set_transform": {
+        "type": "NO_resize_Base_C400_200_TransForm",
+        "args": {
+            "mean": [0.560, 0.524, 0.501],
+            "std": [0.233, 0.243, 0.245],
+            "resize": [512, 384],
+            "use_rand_aug": false
+        },
+        "cut_mix": false,
+        "mix_up": false
+    },
+    "data_loader":{ 
+        "type":"StratifiedKFold",
+        "args": {
+            "batch_size": 32,
+            "shuffle": false,
+            "validation_split": 0.1,
+            "num_workers": 0
+        }
+    },
+    "module": {
+        "type": "CustomModel",
+        "args": {
+        }
+    },
+    "optimizer": {
+        "type": "AdamP",
+        "args": {
+            "lr": 3e-4,
+            "betas": [0.9, 0.999],
+            "weight_decay": 1e-5
+        }
+    },
+    "lr_scheduler": {
+        "type": "ReduceLROnPlateau",
+        "args": {
+            "mode": "min",
+            "factor": 0.05,
+            "patience": 2
+        }
+    },
+    "set_loss": {
+        "type": "FocalLoss",
+        "args": {
+            "gamma" : 5
+        }
+    },
+    "metrics": [
+        "accuracy",
+        "top_10_acc",
+        "f1_score"
+    ],
+    "trainer": {
+        "type": "multi_label",
+        "epochs": 3,
+        "save_dir": "logs/",
+        "save_period": 1,
+        "verbosity": 2,
+        "monitor": "min val_loss",
+        "early_stop": 1,
+        "tensorboard": false,
+        "beta": 0.8
+    },
+    "test":{
+        "path": "/opt/ml/code/src/logs/log/Maske/0902_013705/model_best-epoch3.pth"
+    }
+}
+

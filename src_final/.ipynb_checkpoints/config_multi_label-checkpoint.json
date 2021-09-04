@@ -1,0 +1,77 @@
+{
+    "name": "Maske",
+    "n_gpu": 1,
+    "test_name": "CustomTransForm_multilabel",
+    "data_set": {
+        "type": "CustomDataset",
+        "args": {
+            "dir_path": "/opt/ml/input/data/train"
+        }
+    },
+    "set_transform": {
+        "type": "CustomTransForm",
+        "args": {
+            "mean": [0.560, 0.524, 0.501],
+            "std": [0.233, 0.243, 0.245],
+            "resize": [400, 200],
+            "use_rand_aug": false
+        },
+        "cut_mix": true,
+        "mix_up": true
+    },
+    "data_loader": {
+        "type": "Coustom",
+        "args": {
+            "batch_size": 32,
+            "shuffle": false,
+            "num_workers": 0
+        }
+    },
+    "module": {
+        "type": "CustomModel",
+        "args": {
+        }
+    },
+    "optimizer": {
+        "type": "AdamP",
+        "args": {
+            "lr": 3e-4,
+            "betas": [0.9, 0.999],
+            "weight_decay": 1e-5
+        }
+    },
+    "lr_scheduler": {
+        "type": "MultiStepLR",
+        "args": {
+            "milestones": [500,1000,1500],
+            "gamma": 0.5
+        }
+    },
+    "set_loss": {
+        "type": "FocalLoss",
+        "args": {
+            "gamma":5
+        }
+    },
+    "metrics": [
+        "accuracy",
+        "top_10_acc",
+        "f1_score"
+    ],
+    "trainer": {
+        "type": "multi",
+        "epochs": 5,
+        "save_dir": "logs/",
+        "save_period": 1,
+        "verbosity": 2,
+        "monitor": "min val_loss",
+        "early_stop": 1,
+        "tensorboard": false,
+        "beta": 0.8
+    },
+    "test":{
+        "path": "/opt/ml/code/src/logs/log/Maske/0901_122235/checkpoint-epoch4.pth"
+    }
+
+}
+
