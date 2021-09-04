@@ -1,272 +1,250 @@
 import argparse
-import glob
-import json
-import multiprocessing
-import os
+import collections
 import random
-import re
-from importlib import import_module
-from pathlib import Path
+from pyexpat import model
+import torch
+import numpy as np
+import model.metric as module_metric
+from parse_config import ConfigParser, run_id
+from trainer import Trainer
+from trainer.trainer_multilabel import CostumTrain
+import torch.utils.data as data
+from utils import prepare_device, write_json
+from tqdm import tqdm
+import pandas as pd
+import os
+##
+from torch.utils.data import DataLoader
+import torch.nn as nn
+import torch.optim as optim
+##
+import data_loader.dataset as module_dataset
+import data_loader.data_loaders as module_data
+import transform.transform  as module_transform
+import model.model as module_model
+
+import model.loss as module_loss
+import model.optimizer as module_optimizer
+from adamp import AdamP
+##
+import gc
+import sys
+import glob
 
 import matplotlib.pyplot as plt
-import numpy as np
-import torch
-from torch.optim.lr_scheduler import StepLR
-from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
+# fix random seeds for reproducibility
 
-from dataset import MaskBaseDataset
-from loss import create_criterion
+# SEED = 123
+# torch.manual_seed(SEED)
+# torch.cuda.manual_seed(SEED)
+# torch.cuda.manual_seed_all(SEED)  # if use multi-GPU
+# torch.backends.cudnn.deterministic = True
+# torch.backends.cudnn.benchmark = False
+# np.random.seed(SEED)
+# random.seed(SEED)]
+
+device = torch.device('cuda')
+train_csv = pd.read_csv(os.path.join("/opt/ml/input/data/train", 'train.csv'))
+
+# input data, output data 리스트 만들기(이미지 텐서화는 CustomDataset에서 이뤄짐)
+train_image_paths = []
+train_labels = []
+train_masks = [] # mask:0 / incorrect:1 / notwear:2
+train_genders = [] # male:0 / female:1
+train_ages = [] # (,30):0 / [30, 58):1 / [58,):2 
+
+dict_mask = {'mask1':0,
+             'mask2':0,
+             'mask3':0,
+             'mask4':0,
+             'mask5':0,
+             'incorrect_mask':1,
+             'normal':2,
+            }
+
+dict_gender = {'male':0,
+              'female':1}
+
+for i in range(train_csv.shape[0]): # number of train image folders is 2700
+    row = train_csv.loc[i]
+    seven_paths = glob.glob("/opt/ml/input/data/train" + '/images/' + row['path'] + '/*.*')
+    
+    gender = row['gender']
+    age = row['age']
+    for i, path in enumerate(seven_paths):
+        label = 0
+        mask = path.split('/')[-1].split('.')[0]
+        mask_label = dict_mask[mask]
+        gender_label = dict_gender[gender]
+        age_label = 0
+        if 30 <= age < 58:
+            age_label += 1
+        elif 58 <= age:
+            age_label += 2
+            
+        label = mask_label * 6 + gender_label * 3 + age_label        
+                    
+        train_image_paths.append(path)
+        train_labels.append(label)
+        train_masks.append(mask_label)
+        train_genders.append(gender_label)
+        train_ages.append(age_label)
 
 
-def seed_everything(seed):
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)  # if use multi-GPU
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    np.random.seed(seed)
-    random.seed(seed)
+def func_eval(model,data_iter,device):
+    with torch.no_grad():
+        n_total,n_correct = 0,0
+        model.eval() # evaluate (affects DropOut and BN)
+        for batch_in,batch_out in data_iter:
+            y_trgt = batch_out.to(device)
+            model_pred = model(batch_in.to(device))
+            _,y_pred = torch.max(model_pred.data,1)
+            n_correct += (y_pred==y_trgt).sum().item()
+            n_total += batch_in.size(0)
+        try:
+            val_accr = (n_correct/n_total)
+        except ZeroDivisionError:
+            val_accr = 0
+        model.train() # back to train mode 
+    return val_accr
 
+def main(config):
+    logger = config.get_logger('train')
+    # setting your dataset 
+    device, device_ids = prepare_device(config['n_gpu'])
+    print(f"device {device}, device_ids {device_ids}")
 
-def get_lr(optimizer):
-    for param_group in optimizer.param_groups:
-        return param_group['lr']
+    print(f"start data set\n")
+#     print(train_ages)
+#     data_set = config.init_obj("data_set", module_dataset, device=device,)
+    # set_transform 
 
+    transform = config.init_obj("set_transform", module_transform) 
+    print(f"end set set_transform\n")
 
-def grid_image(np_images, gts, preds, n=16, shuffle=False):
-    batch_size = np_images.shape[0]
-    assert n <= batch_size
+    # # setup data_loader instances
+    if config["data_loader"]["type"] == "BaseLoader":
+        data_loader = config.init_obj('data_loader', module_data, data_set=data_set)
+        val_data_loader = data_loader.split_validation()
+        data_loader.data_set.set_transform(transform.transformations["train"])
+        val_data_loader.dataset.set_transform(transform.transformations["val"])
+        data_loader.data_set.set_transform(transform.transformations["train"])
+    else: # multi label
+#         def __init__(self, dir_path, labels, masks, genders, ages, transform, device):
+#         train_image_paths = os.path.join(config["data_set"]["args"]["dir_path"], "image/")
+        data_set = module_dataset.CustomDataset(train_image_paths, train_labels, train_masks, train_genders, train_ages, transform.transformations["train"], device)
+        # data_set.set_transform(transform.transformations["train"])
+        pass
+    print(len(data_set))
+    print(f"end set data_loader\n")
 
-    choices = random.choices(range(batch_size), k=n) if shuffle else list(range(n))
-    figure = plt.figure(figsize=(12, 18 + 2))  # cautions: hardcoded, 이미지 크기에 따라 figsize 를 조정해야 할 수 있습니다. T.T
-    plt.subplots_adjust(top=0.8)               # cautions: hardcoded, 이미지 크기에 따라 top 를 조정해야 할 수 있습니다. T.T
-    n_grid = np.ceil(n ** 0.5)
-    tasks = ["mask", "gender", "age"]
-    for idx, choice in enumerate(choices):
-        gt = gts[choice].item()
-        pred = preds[choice].item()
-        image = np_images[choice]
-        # title = f"gt: {gt}, pred: {pred}"
-        gt_decoded_labels = MaskBaseDataset.decode_multi_class(gt)
-        pred_decoded_labels = MaskBaseDataset.decode_multi_class(pred)
-        title = "\n".join([
-            f"{task} - gt: {gt_label}, pred: {pred_label}"
-            for gt_label, pred_label, task
-            in zip(gt_decoded_labels, pred_decoded_labels, tasks)
-        ])
-
-        plt.subplot(n_grid, n_grid, idx + 1, title=title)
-        plt.xticks([])
-        plt.yticks([])
-        plt.grid(False)
-        plt.imshow(image, cmap=plt.cm.binary)
-
-    return figure
-
-
-def increment_path(path, exist_ok=False):
-    """ Automatically increment path, i.e. runs/exp --> runs/exp0, runs/exp1 etc.
-
-    Args:
-        path (str or pathlib.Path): f"{model_dir}/{args.name}".
-        exist_ok (bool): whether increment path (increment if False).
-    """
-    path = Path(path)
-    if (path.exists() and exist_ok) or (not path.exists()):
-        return str(path)
+    # build model architecture, then print to console
+    model = config.init_obj('module', module_model)
+    # prepare for (multi-device) GPU training
+    model = model.to(device)
+    if len(device_ids) > 1:
+        model = torch.nn.DataParallel(model, device_ids=device_ids)
+    print(model)
+    # get function handles of loss and metrics
+    if config["set_loss"]["type"] == "CrossEntropyLoss":
+        criterion = nn.CrossEntropyLoss()
     else:
-        dirs = glob.glob(f"{path}*")
-        matches = [re.search(rf"%s(\d+)" % path.stem, d) for d in dirs]
-        i = [int(m.groups()[0]) for m in matches if m]
-        n = max(i) + 1 if i else 2
-        return f"{path}{n}"
+        criterion = config.init_obj("set_loss", module_loss)
+    
+    metrics = [getattr(module_metric, met) for met in config['metrics']]
 
+    # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler
+    trainable_params = filter(lambda p: p.requires_grad, model.parameters())\
+    # FIXME : 커스텀 가능하게 수정
+    optimizer = AdamP(model.parameters(), lr=config["optimizer"]["args"]["lr"], betas=config["optimizer"]["args"]["betas"], weight_decay= config["optimizer"]["args"]["weight_decay"])
+    # optimizer = config.init_obj('optimizer', optim, trainable_params)
+    # FIXME : 커스텀 가능하게 수정
+    lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=config["lr_scheduler"]["args"]["milestones"], gamma=config["lr_scheduler"]["args"]["gamma"])
 
-def train(data_dir, model_dir, args):
-    seed_everything(args.seed)
+    # print(f"func_eval test")
+    # train_accr = func_eval(model, data_loader, device)
+    # valid_accr = func_eval(model, val_data_loader, device)
+    # print ("train_accr:[%.3f] valid_accr:[%.3f]."%(train_accr,valid_accr))
 
-    save_dir = increment_path(os.path.join(model_dir, args.name))
+    torch.cuda.empty_cache()   
+    gc.collect()
+    
 
-    # -- settings
-    use_cuda = torch.cuda.is_available()
-    device = torch.device("cuda" if use_cuda else "cpu")
+    # FIXME: stkfold, multi label, basic 모두 사용할 수 있게
+    print("train start")
+    print(config["trainer"]["type"])
+    if config["trainer"]["type"] == "multi":
+        trainer = CostumTrain(model = model, config = config, criterion = criterion, optimizer = optimizer,
+                                device = device, data_set = data_set, transform= transform,scheduler =lr_scheduler)
+        pass
+    
+    else:
+        trainer = Trainer(model, criterion, metrics, optimizer,
+                            config=config,
+                            device=device,
+                            # data_loader=data_loader,                  # use stkfold
+                            # valid_data_loader=val_data_loader,
+                            data_set = data_set,
+                            transform = transform,
+                            lr_scheduler=lr_scheduler,
+                            mix_up=config["set_transform"]["mix_up"],
+                            cut_mix=config["set_transform"]["cut_mix"],
+                        )
 
-    # -- dataset
-    dataset_module = getattr(import_module("dataset"), args.dataset)  # default: BaseAugmentation
-    dataset = dataset_module(
-        data_dir=data_dir,
-    )
-    num_classes = dataset.num_classes  # 18
+                        
+    trainer.train()
+ 
+    del trainer
+    # del data_loader
+    # del val_data_loader
+    gc.collect()
+    # test_dir = '/opt/ml/input/data/eval'
+    
+    # image_dir = os.path.join(test_dir, 'images')
+    # submission = pd.read_csv(os.path.join(test_dir, 'info.csv'))
+    # image_paths = [os.path.join(image_dir, img_id) for img_id in submission.ImageID]
+    # # print(image_paths)?
+    # eavl_dataset = module_dataset.TestDataset(image_paths)
+    # eavl_dataset.set_transform(transform.transformations["val"])
+    # loader = DataLoader(
+    #     eavl_dataset,
+    #     shuffle=True,
+    # )
 
-    # -- augmentation
-    transform_module = getattr(import_module("dataset"), args.augmentation)  # default: BaseAugmentation
-    transform = transform_module(
-        resize=args.resize,
-        mean=dataset.mean,
-        std=dataset.std,
-    )
-    dataset.set_transform(transform)
+    # model.eval()
+    # all_predictions = []
+    # print(f"start answer")
+    # for images in tqdm(loader):
+    #     with torch.no_grad():
+    #         images = images.to(device)
+    #         pred = model.forward(images)
+    #         pred = pred.argmax(dim=-1)
+    #         all_predictions.extend(pred.cpu().numpy())
+    # submission['ans'] = all_predictions
+    # from datetime import datetime
+    # from utils import read_json, write_json
+    # import json
+    # # # 제출할 파일을 저장합니다.
 
-    # -- data_loader
-    train_set, val_set = dataset.split_dataset()
-
-    train_loader = DataLoader(
-        train_set,
-        batch_size=args.batch_size,
-        num_workers=multiprocessing.cpu_count()//2,
-        shuffle=True,
-        pin_memory=use_cuda,
-        drop_last=True,
-    )
-
-    val_loader = DataLoader(
-        val_set,
-        batch_size=args.valid_batch_size,
-        num_workers=multiprocessing.cpu_count()//2,
-        shuffle=False,
-        pin_memory=use_cuda,
-        drop_last=True,
-    )
-
-    # -- model
-    model_module = getattr(import_module("model"), args.model)  # default: BaseModel
-    model = model_module(
-        num_classes=num_classes
-    ).to(device)
-    model = torch.nn.DataParallel(model)
-
-    # -- loss & metric
-    criterion = create_criterion(args.criterion)  # default: cross_entropy
-    opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: SGD
-    optimizer = opt_module(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=args.lr,
-        weight_decay=5e-4
-    )
-    scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
-
-    # -- logging
-    logger = SummaryWriter(log_dir=save_dir)
-    with open(os.path.join(save_dir, 'config.json'), 'w', encoding='utf-8') as f:
-        json.dump(vars(args), f, ensure_ascii=False, indent=4)
-
-    best_val_acc = 0
-    best_val_loss = np.inf
-    for epoch in range(args.epochs):
-        # train loop
-        model.train()
-        loss_value = 0
-        matches = 0
-        for idx, train_batch in enumerate(train_loader):
-            inputs, labels = train_batch
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-
-            optimizer.zero_grad()
-
-            outs = model(inputs)
-            preds = torch.argmax(outs, dim=-1)
-            loss = criterion(outs, labels)
-
-            loss.backward()
-            optimizer.step()
-
-            loss_value += loss.item()
-            matches += (preds == labels).sum().item()
-            if (idx + 1) % args.log_interval == 0:
-                train_loss = loss_value / args.log_interval
-                train_acc = matches / args.batch_size / args.log_interval
-                current_lr = get_lr(optimizer)
-                print(
-                    f"Epoch[{epoch}/{args.epochs}]({idx + 1}/{len(train_loader)}) || "
-                    f"training loss {train_loss:4.4} || training accuracy {train_acc:4.2%} || lr {current_lr}"
-                )
-                logger.add_scalar("Train/loss", train_loss, epoch * len(train_loader) + idx)
-                logger.add_scalar("Train/accuracy", train_acc, epoch * len(train_loader) + idx)
-
-                loss_value = 0
-                matches = 0
-
-        scheduler.step()
-
-        # val loop
-        with torch.no_grad():
-            print("Calculating validation results...")
-            model.eval()
-            val_loss_items = []
-            val_acc_items = []
-            figure = None
-            for val_batch in val_loader:
-                inputs, labels = val_batch
-                inputs = inputs.to(device)
-                labels = labels.to(device)
-
-                outs = model(inputs)
-                preds = torch.argmax(outs, dim=-1)
-
-                loss_item = criterion(outs, labels).item()
-                acc_item = (labels == preds).sum().item()
-                val_loss_items.append(loss_item)
-                val_acc_items.append(acc_item)
-
-                if figure is None:
-                    inputs_np = torch.clone(inputs).detach().cpu().permute(0, 2, 3, 1).numpy()
-                    inputs_np = dataset_module.denormalize_image(inputs_np, dataset.mean, dataset.std)
-                    figure = grid_image(
-                        inputs_np, labels, preds, n=16, shuffle=args.dataset != "MaskSplitByProfileDataset"
-                    )
-
-            val_loss = np.sum(val_loss_items) / len(val_loader)
-            val_acc = np.sum(val_acc_items) / len(val_set)
-            best_val_loss = min(best_val_loss, val_loss)
-            if val_acc > best_val_acc:
-                print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..")
-                torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
-                best_val_acc = val_acc
-            torch.save(model.module.state_dict(), f"{save_dir}/last.pth")
-            print(
-                f"[Val] acc : {val_acc:4.2%}, loss: {val_loss:4.2} || "
-                f"best acc : {best_val_acc:4.2%}, best loss: {best_val_loss:4.2}"
-            )
-            logger.add_scalar("Val/loss", val_loss, epoch)
-            logger.add_scalar("Val/accuracy", val_acc, epoch)
-            logger.add_figure("results", figure, epoch)
-            print()
-
+    # submission.to_csv(os.path.join(test_dir, f'{run_id}_submission.csv'), index=False)
+    
+    print('test inference is done!')
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    args = argparse.ArgumentParser(description='PyTorch Template')
 
-    from dotenv import load_dotenv
-    import os
-    load_dotenv(verbose=True)
+    args.add_argument('-c', '--config', default=None, type=str,
+                      help='config file path (default: None)')
+    args.add_argument('-r', '--resume', default=None, type=str,
+                      help='path to latest checkpoint (default: None)')
+    args.add_argument('-d', '--device', default=None, type=str,
+                      help='indices of GPUs to enable (default: all)')
 
-    # Data and model checkpoints directories
-    parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
-    parser.add_argument('--epochs', type=int, default=1, help='number of epochs to train (default: 1)')
-    parser.add_argument('--dataset', type=str, default='MaskBaseDataset', help='dataset augmentation type (default: MaskBaseDataset)')
-    parser.add_argument('--augmentation', type=str, default='BaseAugmentation', help='data augmentation type (default: BaseAugmentation)')
-    parser.add_argument("--resize", nargs="+", type=list, default=[128, 96], help='resize size for image when training')
-    parser.add_argument('--batch_size', type=int, default=64, help='input batch size for training (default: 64)')
-    parser.add_argument('--valid_batch_size', type=int, default=1000, help='input batch size for validing (default: 1000)')
-    parser.add_argument('--model', type=str, default='BaseModel', help='model type (default: BaseModel)')
-    parser.add_argument('--optimizer', type=str, default='SGD', help='optimizer type (default: SGD)')
-    parser.add_argument('--lr', type=float, default=1e-3, help='learning rate (default: 1e-3)')
-    parser.add_argument('--val_ratio', type=float, default=0.2, help='ratio for validaton (default: 0.2)')
-    parser.add_argument('--criterion', type=str, default='cross_entropy', help='criterion type (default: cross_entropy)')
-    parser.add_argument('--lr_decay_step', type=int, default=20, help='learning rate scheduler deacy step (default: 20)')
-    parser.add_argument('--log_interval', type=int, default=20, help='how many batches to wait before logging training status')
-    parser.add_argument('--name', default='exp', help='model save at {SM_MODEL_DIR}/{name}')
-
-    # Container environment
-    parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train/images'))
-    parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR', './model'))
-
-    args = parser.parse_args()
-    print(args)
-
-    data_dir = args.data_dir
-    model_dir = args.model_dir
-
-    train(data_dir, model_dir, args)
+    # custom cli options to modify configuration from default values given in json file.
+    CustomArgs = collections.namedtuple('CustomArgs', 'flags type target')
+    options = [
+        CustomArgs(['--lr', '--learning_rate'], type=float, target='optimizer;args;lr'),
+        CustomArgs(['--bs', '--batch_size'], type=int, target='data_loader;args;batch_size'),
+    ]
+    config = ConfigParser.from_args(args, options)
+    main(config)
