@@ -88,6 +88,7 @@ Out-of-Fold : Evaluation단에서 최대한의 성능을 끌어내기 위해 같
   - 60세 이상은 외부 데이터를 합쳐서 모델 성능을 개선시키려고 했으나, MaskTheFace 마스크 데이터셋을 제작했지만 incorrect 라벨이 부족해서 성능 개선에 한계가 있던 것 같습니다.
   - Ipynb파일로 실험을 진행했는데 py파일로 실험하지 못한게 아쉬웠습니다.
 
+
 ## 사용 기술 및 도구
 - VsCode
 - JupyterNotebook
