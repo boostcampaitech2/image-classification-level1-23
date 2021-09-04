@@ -70,7 +70,7 @@
         "beta": 0.8
     },
     "test":{
-        "path": "/opt/ml/code/src/logs/log/Maske/0901_122235/checkpoint-epoch4.pth"
+        "path": "/opt/ml/code/src_final/save_model/epoch_1_loss_0.008717534132301807.pth"
     }
 
 }
